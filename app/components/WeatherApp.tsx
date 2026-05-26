@@ -160,7 +160,10 @@ export default function WeatherApp() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = query.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      setError("都市名を入力してください（例：Tokyo、大阪、Osaka）");
+      return;
+    }
     fetchWeather(`city=${encodeURIComponent(trimmed)}`);
   };
 
