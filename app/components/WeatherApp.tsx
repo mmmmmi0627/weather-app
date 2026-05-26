@@ -268,7 +268,7 @@ export default function WeatherApp() {
         </div>
 
         {/* Search */}
-        <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 space-y-3">
+        <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 space-y-3 overflow-visible">
           <div ref={searchRef} className="relative">
             <form onSubmit={handleSearch} className="flex gap-2">
               <input
@@ -276,7 +276,7 @@ export default function WeatherApp() {
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setError(null); }}
                 onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
-                placeholder="都市名・市区町村を入力（例：東京、大阪、Osaka）"
+                placeholder="都市名・市区町村を入力（例：東京都、大阪府、Osaka）"
                 className="flex-1 bg-white/80 rounded-xl px-4 py-2.5 text-gray-800 placeholder-gray-500 outline-none focus:bg-white transition text-sm"
                 autoComplete="off"
               />
@@ -291,7 +291,7 @@ export default function WeatherApp() {
 
             {/* Suggestions dropdown */}
             {showSuggestions && suggestions.length > 0 && (
-              <ul className="absolute z-10 left-0 right-0 mt-1 bg-white rounded-xl shadow-xl overflow-hidden">
+              <ul className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-200">
                 {suggestions.map((s, i) => (
                   <li key={i}>
                     <button
