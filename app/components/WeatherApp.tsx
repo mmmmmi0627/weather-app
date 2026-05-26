@@ -1,6 +1,15 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+
+interface GeoSuggestion {
+  name: string;
+  nameEn: string;
+  lat: number;
+  lon: number;
+  country: string;
+  state?: string;
+}
 
 interface WeatherMain {
   temp: number;
@@ -135,11 +144,49 @@ export default function WeatherApp() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<GeoSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  // Fetch suggestions with debounce
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(trimmed)}`);
+        const list: GeoSuggestion[] = await res.json();
+        setSuggestions(list);
+        setShowSuggestions(list.length > 0);
+      } catch {
+        setSuggestions([]);
+      }
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query]);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const fetchWeather = useCallback(async (params: string) => {
     setLoading(true);
     setError(null);
     setSelectedDate(null);
+    setShowSuggestions(false);
     try {
       const res = await fetch(`/api/weather?${params}`);
       const json: ApiResponse = await res.json();
@@ -165,6 +212,13 @@ export default function WeatherApp() {
       return;
     }
     fetchWeather(`city=${encodeURIComponent(trimmed)}`);
+  };
+
+  const handleSelectSuggestion = (s: GeoSuggestion) => {
+    setQuery(s.name !== s.nameEn ? `${s.name} (${s.nameEn})` : s.name);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    fetchWeather(`lat=${s.lat}&lon=${s.lon}`);
   };
 
   const handleCurrentLocation = () => {
@@ -196,22 +250,54 @@ export default function WeatherApp() {
 
         {/* Search */}
         <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 space-y-3">
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="都市名を入力（例：Tokyo, 東京）"
-              className="flex-1 bg-white/80 rounded-xl px-4 py-2.5 text-gray-800 placeholder-gray-500 outline-none focus:bg-white transition text-sm"
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-white text-blue-600 font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-50 transition disabled:opacity-50 text-sm whitespace-nowrap"
-            >
-              検索
-            </button>
-          </form>
+          <div ref={searchRef} className="relative">
+            <form onSubmit={handleSearch} className="flex gap-2">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setError(null); }}
+                onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                placeholder="都市名・市区町村を入力（例：東京、大阪、Osaka）"
+                className="flex-1 bg-white/80 rounded-xl px-4 py-2.5 text-gray-800 placeholder-gray-500 outline-none focus:bg-white transition text-sm"
+                autoComplete="off"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-white text-blue-600 font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-50 transition disabled:opacity-50 text-sm whitespace-nowrap"
+              >
+                検索
+              </button>
+            </form>
+
+            {/* Suggestions dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <ul className="absolute z-10 left-0 right-0 mt-1 bg-white rounded-xl shadow-xl overflow-hidden">
+                {suggestions.map((s, i) => (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); handleSelectSuggestion(s); }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition flex items-center gap-3 border-b border-gray-100 last:border-0"
+                    >
+                      <span className="text-lg">📍</span>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">
+                          {s.name}
+                          {s.name !== s.nameEn && (
+                            <span className="text-gray-500 font-normal ml-1">({s.nameEn})</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {[s.state, s.country].filter(Boolean).join(", ")}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <button
             onClick={handleCurrentLocation}
             disabled={loading}
