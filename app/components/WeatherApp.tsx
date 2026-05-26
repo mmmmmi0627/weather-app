@@ -268,7 +268,7 @@ export default function WeatherApp() {
         </div>
 
         {/* Search */}
-        <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 space-y-3 overflow-visible">
+        <div className="relative z-10 bg-white/20 backdrop-blur-sm rounded-2xl p-4 space-y-3 overflow-visible">
           <div ref={searchRef} className="relative">
             <form onSubmit={handleSearch} className="flex gap-2">
               <input
