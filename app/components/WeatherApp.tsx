@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { searchJapanCities } from "./japanCities";
 
 interface GeoSuggestion {
   name: string;
@@ -158,6 +159,24 @@ export default function WeatherApp() {
       setShowSuggestions(false);
       return;
     }
+
+    // Japanese characters: try static list first (instant), then OWM geocoding
+    const isJapanese = /[぀-ヿ㐀-䶿一-鿿]/.test(trimmed);
+    if (isJapanese) {
+      const local = searchJapanCities(trimmed).map((c) => ({
+        name: c.ja,
+        nameEn: c.nameEn,
+        lat: c.lat,
+        lon: c.lon,
+        country: "JP",
+        state: c.region,
+      }));
+      setSuggestions(local);
+      setShowSuggestions(local.length > 0);
+      return;
+    }
+
+    // English/romaji: use OWM Geocoding API
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/geocode?q=${encodeURIComponent(trimmed)}`);
