@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 type StatusFilter = "all" | "active" | "completed";
 type Priority = "high" | "medium" | "low";
@@ -58,6 +58,9 @@ export default function TodoApp() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [catFilter, setCatFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
+
+  const [lineTestResult, setLineTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [lineTestLoading, setLineTestLoading] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -118,6 +121,33 @@ export default function TodoApp() {
     const id = setInterval(check, 60_000);
     return () => clearInterval(id);
   }, [todos, hydrated]);
+
+  const sendLineTest = useCallback(async () => {
+    setLineTestLoading(true);
+    setLineTestResult(null);
+    try {
+      const res = await fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: "LINE 通知テスト",
+          dueDate: new Date(Date.now() + 60_000).toISOString(),
+          isOverdue: false,
+          notifyLabel: "テスト送信",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLineTestResult({ ok: true, msg: "✅ LINE 送信成功！" });
+      } else {
+        setLineTestResult({ ok: false, msg: `❌ エラー: ${JSON.stringify(data.error)}` });
+      }
+    } catch (e) {
+      setLineTestResult({ ok: false, msg: `❌ ネットワークエラー: ${String(e)}` });
+    } finally {
+      setLineTestLoading(false);
+    }
+  }, []);
 
   const addTodo = () => {
     const text = inputText.trim();
@@ -286,6 +316,23 @@ export default function TodoApp() {
               ＋ カテゴリ
             </button>
           </div>
+        </div>
+
+        {/* ── LINE test ── */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md px-5 py-4 mb-4 flex items-center gap-3 flex-wrap">
+          <span className="text-xs text-gray-500 dark:text-gray-400 flex-1">LINE 通知の接続確認</span>
+          <button
+            onClick={sendLineTest}
+            disabled={lineTestLoading}
+            className="rounded-lg bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-2 text-xs font-semibold transition"
+          >
+            {lineTestLoading ? "送信中..." : "📨 テスト送信"}
+          </button>
+          {lineTestResult && (
+            <span className={`text-xs font-medium ${lineTestResult.ok ? "text-green-600" : "text-red-500"}`}>
+              {lineTestResult.msg}
+            </span>
+          )}
         </div>
 
         {/* ── Search & filters ── */}
